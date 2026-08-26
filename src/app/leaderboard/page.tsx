@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trophy, ArrowRight, ExternalLink } from 'lucide-react';
-import { mockLeaderboard, mockScenarios } from '@/data/mockData';
+import { Scenario } from '@/types';
 
 export default function LeaderboardPage() {
   const router = useRouter();
@@ -11,6 +11,9 @@ export default function LeaderboardPage() {
   // States
   const [selectedScenarioId, setSelectedScenarioId] = useState('scen-1');
   const [leaderboardScope, setLeaderboardScope] = useState<'org' | 'global'>('org');
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [leaderboard, setLeaderboard] = useState<Array<{ rank: string; stackName: string; version: string; score: number; passRate: string; date: string; badgeColor: string }>>([]);
+  useEffect(() => { Promise.all([fetch('/api/scenarios').then((response) => response.json()), fetch('/api/leaderboard').then((response) => response.json())]).then(([scenarioResult, leaderboardResult]) => { setScenarios(scenarioResult.data || []); setLeaderboard(leaderboardResult.data || []); }).catch(() => { setScenarios([]); setLeaderboard([]); }); }, []);
 
   const handleScenarioChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedScenarioId(e.target.value);
@@ -30,7 +33,7 @@ export default function LeaderboardPage() {
             onChange={handleScenarioChange}
             className="bg-slate-950 border border-slate-850 rounded py-1.5 px-3 text-xs text-slate-205 focus:outline-none focus:border-slate-700"
           >
-            {mockScenarios.map((scen) => (
+            {scenarios.map((scen) => (
               <option key={scen.id} value={scen.id}>
                 {scen.name}
               </option>
@@ -81,12 +84,12 @@ export default function LeaderboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/40">
-              {mockLeaderboard.map((row) => {
+              {leaderboard.map((row) => {
                 const isTopThree = ['1st', '2nd', '3rd'].includes(row.rank);
                 
                 return (
                   <tr 
-                    key={row.rank} 
+                    key={`${row.rank}-${row.stackName}-${row.version}`}
                     className="hover:bg-slate-800/20 transition-colors"
                   >
                     {/* Rank with Gold/Silver/Bronze indicators */}

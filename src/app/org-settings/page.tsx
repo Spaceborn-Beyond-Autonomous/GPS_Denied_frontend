@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Shield, 
   Key, 
@@ -13,21 +13,20 @@ import {
   Trash2,
   Server
 } from 'lucide-react';
-import { mockOrg } from '@/data/mockData';
+
+interface Workspace {
+  organization?: string;
+}
 
 export default function OrgSettingsPage() {
-  // Mock team members list
-  const [teamMembers, setTeamMembers] = useState([
-    { id: 'u1', name: 'Guggarapu Ganapathi', email: 'guggarapu.ganapathi@spaceborn.io', role: 'Admin', status: 'Active' },
-    { id: 'u2', name: 'Sarah Jenkins', email: 's.jenkins@spaceborn.io', role: 'Engineer', status: 'Active' },
-    { id: 'u3', name: 'Jimmy Dane', email: 'j.dane@spaceborn.io', role: 'Engineer', status: 'Active' },
-  ]);
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; email: string; role: string; status: string }>>([]);
 
-  // Mock API keys list
-  const [apiKeys, setApiKeys] = useState([
-    { id: 'key1', name: 'Production CI/CD Key', token: 'sb_live_4f3b9a2c1d4e8f9a0b1c2d3e4f5a6b7c', created: 'Oct 01, 2024', status: 'Active', visible: false },
-    { id: 'key2', name: 'Sarah Local Testing', token: 'sb_live_9e5f2d9a184ef460bc210d32f4185203', created: 'Oct 22, 2024', status: 'Active', visible: false },
-  ]);
+  const [apiKeys, setApiKeys] = useState<Array<{ id: string; name: string; token: string; created: string; status: string; visible: boolean }>>([]);
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+
+  useEffect(() => {
+    fetch('/api/organization').then((response) => response.json()).then((result: { user?: Workspace; team?: Array<{ id: string; name: string; email: string; role: string; status: string }>; apiKeys?: Array<{ id: string; name: string; token: string; created: string; status: string }> }) => { setWorkspace(result.user || null); setTeamMembers(result.team || []); setApiKeys((result.apiKeys || []).map((key) => ({ ...key, visible: false }))); }).catch(() => setWorkspace(null));
+  }, []);
 
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
 
@@ -41,11 +40,19 @@ export default function OrgSettingsPage() {
     setApiKeys(prev => prev.map(k => k.id === id ? { ...k, visible: !k.visible } : k));
   };
 
-  const handleRevokeKey = (id: string) => {
+  const handleRevokeKey = async (id: string) => {
+    await fetch('/api/organization/api-keys', { method: 'DELETE' });
     setApiKeys(prev => prev.filter(k => k.id !== id));
   };
 
-  const quotaPercent = (mockOrg.quota_used / mockOrg.quota_sim_minutes) * 100;
+  const handleGenerateKey = async () => {
+    const response = await fetch('/api/organization/api-keys', { method: 'POST' });
+    if (!response.ok) return;
+    const result = await response.json();
+    if (result.apiKey) setApiKeys([{ id: 'current', name: 'Simulator API Key', token: result.apiKey, created: new Date().toISOString(), status: 'Active', visible: false }]);
+  };
+
+  const quotaPercent = 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -57,7 +64,7 @@ export default function OrgSettingsPage() {
         <div className="glass-panel glass-panel-hover p-5 rounded-lg flex flex-col justify-between">
           <div className="space-y-1">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Plan Tier</span>
-            <span className="text-xl font-bold text-white mt-1 block">{mockOrg.plan_tier}</span>
+            <span className="text-xl font-bold text-white mt-1 block">{workspace?.organization || 'Workspace'}</span>
           </div>
           <p className="text-[10px] text-slate-500 mt-4 font-bold uppercase tracking-widest">
             Billed annually · Auto-renews Sep 2027
@@ -69,7 +76,7 @@ export default function OrgSettingsPage() {
           <div>
             <div className="flex justify-between items-center text-xs font-semibold">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monthly Simulation minutes</span>
-              <span className="text-white font-bold">{mockOrg.quota_used.toLocaleString()} / {mockOrg.quota_sim_minutes.toLocaleString()} min</span>
+              <span className="text-white font-bold">Quota unavailable</span>
             </div>
             {/* Progress bar */}
             <div className="w-full bg-slate-950 rounded-full h-2 mt-2.5 overflow-hidden border border-slate-850">
@@ -80,7 +87,7 @@ export default function OrgSettingsPage() {
             </div>
           </div>
           <p className="text-[10px] text-slate-500 font-medium">
-            Resetting in 8 days · {quotaPercent.toFixed(1)}% of your monthly allotment consumed.
+            Usage data is provided by the backend workspace service.
           </p>
         </div>
       </div>
@@ -145,6 +152,7 @@ export default function OrgSettingsPage() {
               </div>
               <button 
                 type="button"
+                onClick={handleGenerateKey}
                 className="text-[10px] font-extrabold text-slate-350 hover:text-white uppercase tracking-wider cursor-pointer"
               >
                 + New Key

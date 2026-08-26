@@ -34,18 +34,19 @@ spec:
     );
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const stackId = `stk-custom-${Date.now()}`;
     const newStack = {
-      id: `stk-custom-${Date.now()}`,
+      id: stackId,
       org_id: 'org-1',
       name,
       tags: selectedTags,
       versions: [
         {
           id: `ver-${Date.now()}`,
-          stack_id: `stk-custom-${Date.now()}`,
+          stack_id: stackId,
           version,
           image_digest: digest,
           submitted_date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
@@ -57,14 +58,14 @@ spec:
       ]
     };
 
-    // Save to localStorage
-    try {
-      const stored = localStorage.getItem('spaceborn_custom_stacks');
-      const customStacks = stored ? JSON.parse(stored) : [];
-      customStacks.unshift(newStack);
-      localStorage.setItem('spaceborn_custom_stacks', JSON.stringify(customStacks));
-    } catch (err) {
-      console.error('Failed to save stack to localStorage', err);
+    const response = await fetch('/api/stacks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newStack),
+    });
+    if (!response.ok) {
+      console.error('Failed to register stack through API', await response.text());
+      return;
     }
 
     router.push('/stacks');

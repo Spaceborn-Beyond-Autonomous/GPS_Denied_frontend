@@ -3,7 +3,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Upload, HelpCircle, Layers, Play, Award, CheckCircle, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
-import { mockStacks } from '@/data/mockData';
 import { Stack } from '@/types';
 
 function StacksContent() {
@@ -13,22 +12,14 @@ function StacksContent() {
 
   // State to track expanded stack cards
   const [expandedStackIds, setExpandedStackIds] = useState<string[]>(['stk-1']);
-  const [stacks, setStacks] = useState<Stack[]>(mockStacks);
+  const [stacks, setStacks] = useState<Stack[]>([]);
 
-  // Load custom stacks from localStorage
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('spaceborn_custom_stacks');
-      if (stored) {
-        const custom = JSON.parse(stored);
-        if (Array.isArray(custom)) {
-          setStacks([...custom, ...mockStacks]);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load custom stacks', err);
-    }
-  }, []);
+    fetch(`/api/stacks${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`)
+      .then((response) => response.json())
+      .then((result: { data?: Stack[] }) => setStacks(result.data || []))
+      .catch(() => setStacks([]));
+  }, [searchQuery]);
 
   const kpis = [
     { name: 'Total Registered Stacks', value: `${stacks.length} Active`, desc: 'ROS 2 Humble / Iron supported' },

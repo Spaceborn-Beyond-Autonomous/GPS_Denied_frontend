@@ -1,22 +1,27 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight, Play, Server, AlertCircle, Volume2, TrendingUp, Cpu, Gauge } from 'lucide-react';
-import { mockRuns, mockOrg } from '@/data/mockData';
+import { Run } from '@/types';
 
 export default function DashboardPage() {
   const router = useRouter();
   
   // Filter out running, queued, passed, failed, error from mock runs
-  const recentRuns = mockRuns.slice(0, 5);
+  const [recentRuns, setRecentRuns] = useState<Run[]>([]);
+  useEffect(() => { fetch('/api/runs?limit=5').then((response) => response.json()).then((result: { data?: Run[] }) => setRecentRuns(result.data || [])).catch(() => setRecentRuns([])); }, []);
+
+  const completedRuns = recentRuns.filter((run) => run.score !== null);
+  const averageScore = completedRuns.length ? completedRuns.reduce((sum, run) => sum + (run.score || 0), 0) / completedRuns.length : 0;
+  const passRate = completedRuns.length ? (completedRuns.filter((run) => run.status === 'Passed').length / completedRuns.length) * 100 : 0;
 
   const kpis = [
-    { name: 'Runs This Month', value: '348', change: '+12% vs last month', icon: Play, isPositive: true },
-    { name: 'Pass Rate %', value: '78.4%', change: 'Target benchmark: 80%', icon: Gauge, isPositive: false },
-    { name: 'Avg Score', value: '84.2 / 100', change: 'Across 4 main scenarios', icon: TrendingUp, isPositive: true },
-    { name: 'Sim-Minutes', value: '12,450 / 20k', change: '62.3% of monthly limit', icon: Cpu, isPositive: true }
+    { name: 'Runs This Month', value: `${recentRuns.length}`, change: 'Loaded from backend', icon: Play, isPositive: true },
+    { name: 'Pass Rate %', value: `${passRate.toFixed(1)}%`, change: 'Calculated from loaded runs', icon: Gauge, isPositive: passRate >= 80 },
+    { name: 'Avg Score', value: `${averageScore.toFixed(1)} / 100`, change: 'Calculated from loaded runs', icon: TrendingUp, isPositive: true },
+    { name: 'Sim-Minutes', value: 'Unavailable', change: 'Backend quota data required', icon: Cpu, isPositive: false }
   ];
 
   const getStatusStyle = (status: string) => {

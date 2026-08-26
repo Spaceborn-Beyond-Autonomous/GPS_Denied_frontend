@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { X } from 'lucide-react';
@@ -30,6 +30,7 @@ function DynamicHeaderTitle({ pathname }: { pathname: string }) {
     if (pathname === '/stacks') return 'Navigation Stacks Library';
     if (pathname === '/org-settings') return 'Organisation Settings';
     if (pathname === '/docs') return 'Developer Integration Guide';
+    if (pathname === '/profile') return 'My Profile';
     return 'SpaceBorn Nav-Testing';
   };
 
@@ -67,6 +68,39 @@ function SidebarFallback() {
 export default function AppShell({ children }: AppProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
+  const isPublicPath = pathname === '/login' || pathname === '/signup';
+
+  useEffect(() => {
+    if (isPublicPath) {
+      setAuthChecked(true);
+      return;
+    }
+
+    let active = true;
+    fetch('/api/me')
+      .then((response) => {
+        if (!response.ok) {
+          router.replace(`/signup?next=${encodeURIComponent(pathname)}`);
+          return;
+        }
+        if (active) setAuthChecked(true);
+      })
+      .catch(() => router.replace(`/signup?next=${encodeURIComponent(pathname)}`));
+
+    return () => {
+      active = false;
+    };
+  }, [isPublicPath, pathname, router]);
+
+  if (isPublicPath) {
+    return <>{children}</>;
+  }
+
+  if (!authChecked) {
+    return <div className="min-h-screen bg-background" />;
+  }
 
   const getSearchPlaceholder = () => {
     if (pathname === '/stacks') return 'Search submitted stacks...';

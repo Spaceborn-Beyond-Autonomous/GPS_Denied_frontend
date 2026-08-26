@@ -3,7 +3,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Upload, HelpCircle, MapPin, Radio, Compass } from 'lucide-react';
-import { mockScenarios } from '@/data/mockData';
 import { Scenario } from '@/types';
 
 function ScenariosContent() {
@@ -11,23 +10,14 @@ function ScenariosContent() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('search') || '';
 
-  const [scenarios, setScenarios] = useState<Scenario[]>(mockScenarios);
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
 
-  // Load custom scenarios from localStorage
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('spaceborn_custom_scenarios');
-      if (stored) {
-        const custom = JSON.parse(stored);
-        if (Array.isArray(custom)) {
-          // Prepend custom scenarios to mock ones
-          setScenarios([...custom, ...mockScenarios]);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load custom scenarios', err);
-    }
-  }, []);
+    fetch(`/api/scenarios${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`)
+      .then((response) => response.json())
+      .then((result: { data?: Scenario[] }) => setScenarios(result.data || []))
+      .catch(() => setScenarios([]));
+  }, [searchQuery]);
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {

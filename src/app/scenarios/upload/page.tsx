@@ -60,7 +60,7 @@ spec:
     setJammingProfile(updated);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const newScenario = {
@@ -76,14 +76,14 @@ spec:
       sensor_suite: sensorSuite,
     };
 
-    // Save to localStorage
-    try {
-      const stored = localStorage.getItem('spaceborn_custom_scenarios');
-      const customScenarios = stored ? JSON.parse(stored) : [];
-      customScenarios.unshift(newScenario);
-      localStorage.setItem('spaceborn_custom_scenarios', JSON.stringify(customScenarios));
-    } catch (err) {
-      console.error('Failed to save scenario to localStorage', err);
+    const response = await fetch('/api/scenarios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newScenario),
+    });
+    if (!response.ok) {
+      console.error('Failed to save scenario through API', await response.text());
+      return;
     }
 
     router.push('/scenarios');

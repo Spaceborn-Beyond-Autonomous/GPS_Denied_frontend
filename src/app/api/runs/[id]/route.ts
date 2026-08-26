@@ -1,9 +1,12 @@
-import { NextResponse } from 'next/server';
-import { mockRuns } from '@/data/mockData';
-import { apiError } from '@/lib/api';
+import { NextRequest, NextResponse } from 'next/server';
+import { backendRequest, backendUrl, proxyBackendResponse } from '@/lib/backend';
 
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
-    const { id } = await context.params;
-    const run = mockRuns.find((item) => item.id === id);
-    return run ? NextResponse.json({ data: run }) : apiError(`Run not found: ${id}`, 404);
+export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  if (backendUrl) {
+    const response = await backendRequest(`/api/v1/runs/${encodeURIComponent(id)}`);
+    return proxyBackendResponse(response!);
+  }
+
+  return NextResponse.json({ error: 'Backend API is not configured.' }, { status: 503 });
 }

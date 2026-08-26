@@ -13,7 +13,6 @@ import {
   TrendingUp,
   ArrowUpRight
 } from 'lucide-react';
-import { mockRuns } from '@/data/mockData';
 import { Run } from '@/types';
 
 function RunsContent() {
@@ -24,11 +23,22 @@ function RunsContent() {
   // States
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>(initialSearch);
+  const [runs, setRuns] = useState<Run[]>([]);
   
   // Update local query state if search param changes (e.g. via header search submit)
   useEffect(() => {
     setSearchQuery(initialSearch);
   }, [initialSearch]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (statusFilter !== 'All') params.set('status', statusFilter);
+    if (searchQuery) params.set('search', searchQuery);
+    fetch(`/api/runs?${params.toString()}`)
+      .then((response) => response.json())
+      .then((result: { data?: Run[] }) => setRuns(result.data || []))
+      .catch(() => setRuns([]));
+  }, [statusFilter, searchQuery]);
   const [selectedRunIds, setSelectedRunIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [compareModalOpen, setCompareModalOpen] = useState<boolean>(false);
@@ -55,7 +65,7 @@ function RunsContent() {
   };
 
   // Get filtered runs
-  const filteredRuns = mockRuns.filter(run => {
+  const filteredRuns = runs.filter(run => {
     const matchesStatus = statusFilter === 'All' || run.status === statusFilter;
     const matchesSearch = run.stack_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           run.scenario_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -86,7 +96,7 @@ function RunsContent() {
   };
 
   // Get detailed information of runs selected for comparison
-  const comparedRuns = mockRuns.filter(r => selectedRunIds.includes(r.id));
+  const comparedRuns = runs.filter(r => selectedRunIds.includes(r.id));
 
   return (
     <div className="space-y-6 animate-fade-in">

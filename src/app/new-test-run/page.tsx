@@ -12,7 +12,7 @@ import {
   FileCode,
   Info
 } from 'lucide-react';
-import { mockScenarios } from '@/data/mockData';
+import { Scenario } from '@/types';
 
 export default function NewTestRunPage() {
   const router = useRouter();
@@ -62,6 +62,9 @@ export default function NewTestRunPage() {
 
   // Step 2: Select Scenario states
   const [selectedScenarioId, setSelectedScenarioId] = useState('scen-1');
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  useEffect(() => { fetch('/api/scenarios').then((response) => response.json()).then((result: { data?: Scenario[] }) => setScenarios(result.data || [])).catch(() => setScenarios([])); }, []);
 
   // Step 3: Configure states
   const [timeout, setTimeoutVal] = useState('1800');
@@ -83,15 +86,37 @@ export default function NewTestRunPage() {
     }
   }, [yamlContent]);
 
-  const selectedScenario = mockScenarios.find(s => s.id === selectedScenarioId) || mockScenarios[0];
+  const selectedScenario = scenarios.find(s => s.id === selectedScenarioId) || scenarios[0];
 
   // Submit Handler
-  const handleLaunch = () => {
-    // Generate a new mock run ID in the 8000s
-    const newRunId = 'RUN-8043';
-    
-    // Redirect to the newly created live run!
-    router.push(`/runs/${newRunId}?tab=live&launched=true`);
+  const handleLaunch = async () => {
+    setLaunchError(null);
+    try {
+      const response = await fetch('/api/runs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stackName: dockerUrl.trim(), stackVersion: dockerTag.trim(), scenario: selectedScenario?.name || selectedScenarioId }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setLaunchError(result.message || result.error || 'Unable to create simulation run.');
+        return;
+      }
+      const runId = result.data?.runId || result.data?.id;
+      if (!runId) {
+        setLaunchError('Backend did not return a run identifier.');
+        return;
+      }
+      const startResponse = await fetch(`/api/runs/${runId}/start`, { method: 'POST' });
+      const startResult = await startResponse.json();
+      if (!startResponse.ok) {
+        setLaunchError(startResult.message || startResult.error || 'Simulator could not be started.');
+        return;
+      }
+      router.push(`/runs/${runId}?tab=live&launched=true`);
+    } catch (launchError) {
+      setLaunchError(launchError instanceof Error ? launchError.message : 'Unable to contact the backend.');
+    }
   };
 
   const getStepCircleClass = (s: number) => {
@@ -331,7 +356,7 @@ export default function NewTestRunPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[300px] overflow-y-auto pr-1">
-                {mockScenarios.map((scen) => {
+                {scenarios.map((scen) => {
                   const isSelected = selectedScenarioId === scen.id;
                   const difficultyColors = {
                     Easy: 'text-emerald-400 border-emerald-800/60 bg-emerald-950/20',
@@ -553,7 +578,7 @@ export default function NewTestRunPage() {
                   <div className="space-y-1">
                     <h4 className="text-xs font-bold text-white tracking-wider uppercase">Resource Allotment Warning</h4>
                     <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
-                      Estimated Cost: {selectedScenario.duration === 'Variable' ? '15' : selectedScenario.duration.replace('m', '')} Sim-Minutes. This will be deducted from your organization's remaining 7,550 monthly allocation.
+                       Estimated Cost: {selectedScenario?.duration === 'Variable' ? '15' : (selectedScenario?.duration || '0').replace('m', '')} Sim-Minutes.
                     </p>
                   </div>
                 </div>
@@ -571,11 +596,12 @@ export default function NewTestRunPage() {
                 <span className="text-emerald-450 font-bold">✓ stack.yaml validation passed</span>
               )}
               {step === 2 && (
-                <span className="font-semibold">Selected: <strong className="text-white font-bold">{selectedScenario.name}</strong></span>
+                 <span className="font-semibold">Selected: <strong className="text-white font-bold">{selectedScenario?.name || 'None'}</strong></span>
               )}
             </div>
             
-            <div className="flex gap-3">
+             <div className="flex gap-3 items-center">
+               {launchError && <span role="alert" className="max-w-sm text-[10px] font-bold text-rose-400">{launchError}</span>}
               {step > 1 && (
                 <button
                   type="button"

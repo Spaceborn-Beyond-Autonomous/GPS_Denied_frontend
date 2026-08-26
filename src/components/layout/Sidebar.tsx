@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -14,9 +14,17 @@ import {
   Award,
   Clock,
   Terminal,
-  Settings
+  Settings,
+  LogOut,
+  UserRound
 } from 'lucide-react';
-import { mockUser } from '@/data/mockData';
+
+interface SidebarUser {
+  name: string;
+  email: string;
+  title?: string;
+  organization?: string;
+}
 
 interface SidebarProps {
   onCloseMobile?: () => void;
@@ -24,8 +32,19 @@ interface SidebarProps {
 
 export default function Sidebar({ onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab = searchParams.get('tab') || 'live';
+  const [user, setUser] = useState<SidebarUser | null>(null);
+
+  useEffect(() => {
+    fetch('/api/me')
+      .then((response) => response.ok ? response.json() : null)
+      .then((result: { user?: SidebarUser } | null) => {
+        if (result?.user) setUser(result.user);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const menuItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -50,6 +69,12 @@ export default function Sidebar({ onCloseMobile }: SidebarProps) {
   };
 
   const runId = getRunId();
+
+  const handleSignOut = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.replace('/signup');
+    router.refresh();
+  };
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-full text-slate-200">
@@ -123,15 +148,19 @@ export default function Sidebar({ onCloseMobile }: SidebarProps) {
 
       {/* User Profile Card */}
       <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-        <div className="flex items-center gap-3">
+        <Link href="/profile" onClick={onCloseMobile} className={`flex items-center gap-3 rounded-md p-2 -m-2 transition-colors hover:bg-slate-800/60 ${pathname === '/profile' ? 'bg-slate-800/60' : ''}`}>
           <div className="h-9 w-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-semibold text-white select-none">
-            GG
+            <UserRound className="h-4 w-4 text-slate-400" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-white truncate">{mockUser.name}</p>
-            <p className="text-[10px] text-slate-500 truncate">{mockUser.title}</p>
+            <p className="text-xs font-semibold text-white truncate">{user?.name || 'Loading operator'}</p>
+            <p className="text-[10px] text-slate-500 truncate">{user?.title || user?.organization || 'Account'}</p>
           </div>
-        </div>
+        </Link>
+        <button type="button" onClick={handleSignOut} className="mt-3 flex w-full items-center gap-2 rounded-md px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-300">
+          <LogOut className="h-3.5 w-3.5" />
+          Sign out
+        </button>
       </div>
     </aside>
   );

@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu, Search, Bell, Layers, Map, Activity, X } from 'lucide-react';
-import { mockScenarios, mockStacks, mockRuns } from '@/data/mockData';
 import { Scenario, Stack, Run } from '@/types';
 import Link from 'next/link';
 
@@ -25,31 +24,16 @@ export default function Header({
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  const [scenarios, setScenarios] = useState<Scenario[]>(mockScenarios);
-  const [stacks, setStacks] = useState<Stack[]>(mockStacks);
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [stacks, setStacks] = useState<Stack[]>([]);
+  const [runs, setRuns] = useState<Run[]>([]);
   
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Load custom scenarios & stacks from localStorage on mount/focus
   useEffect(() => {
-    try {
-      const storedScen = localStorage.getItem('spaceborn_custom_scenarios');
-      if (storedScen) {
-        const customScen = JSON.parse(storedScen);
-        if (Array.isArray(customScen)) {
-          setScenarios([...customScen, ...mockScenarios]);
-        }
-      }
-      const storedStk = localStorage.getItem('spaceborn_custom_stacks');
-      if (storedStk) {
-        const customStk = JSON.parse(storedStk);
-        if (Array.isArray(customStk)) {
-          setStacks([...customStk, ...mockStacks]);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load local storage for search', err);
-    }
+    Promise.all(['/api/scenarios', '/api/stacks', '/api/runs'].map((url) => fetch(url).then((response) => response.json())))
+      .then(([scenarioResult, stackResult, runResult]) => { setScenarios(scenarioResult.data || []); setStacks(stackResult.data || []); setRuns(runResult.data || []); })
+      .catch(() => { setScenarios([]); setStacks([]); setRuns([]); });
   }, [showDropdown]); // Reload when search panel opens
 
   // Click outside listener to dismiss search dropdown
@@ -75,7 +59,7 @@ export default function Header({
     : [];
     
   const matchedRuns = query
-    ? mockRuns.filter(r => r.id.toLowerCase().includes(query) || r.stack_name.toLowerCase().includes(query) || r.scenario_name.toLowerCase().includes(query)).slice(0, 3)
+    ? runs.filter(r => r.id.toLowerCase().includes(query) || r.stack_name.toLowerCase().includes(query) || r.scenario_name.toLowerCase().includes(query)).slice(0, 3)
     : [];
 
   const hasResults = matchedStacks.length > 0 || matchedScenarios.length > 0 || matchedRuns.length > 0;
